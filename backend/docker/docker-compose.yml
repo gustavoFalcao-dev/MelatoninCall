@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: $CONTAINER_NAME
+    environment:
+      POSTGRES_USER: $DB_USER
+      POSTGRES_PASSWORD: $DB_PASS
+      POSTGRES_DB: $POSTGRES_DB
+    ports:
+      - $PORTS
+    volumes:
+      - melatonincall_data:/var/lib/postgresql/data
+
+volumes:
+  melatonincall_data:
