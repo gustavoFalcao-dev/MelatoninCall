@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 axum = { version = "0.8.9", features = ["ws"] }
+bcrypt = "0.19.3"
 chrono = "0.4.45"
 dotenvy = "0.15.7"
 serde = "1.0.229"
