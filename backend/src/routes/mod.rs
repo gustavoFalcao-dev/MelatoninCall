@@ -14,4 +14,5 @@ pub fn build_router() -> Router<AppState> {
         .route("/", get(|| async{"Hello, World"}))
         .route("/health", get(health::health_check))
         .route("/users/register", post(users::register))
+        .route("/users/login", post(users::login))
 }
