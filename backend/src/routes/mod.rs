@@ -1,5 +1,6 @@
 mod health;
 mod users;
+mod servers;
 
 use axum::{
     routing::{
@@ -15,4 +16,5 @@ pub fn build_router() -> Router<AppState> {
         .route("/health", get(health::health_check))
         .route("/users/register", post(users::register))
         .route("/users/login", post(users::login))
+        .route("/servers/create", post(servers::create))
 }
