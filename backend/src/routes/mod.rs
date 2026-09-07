@@ -1,6 +1,7 @@
 mod health;
 mod users;
 mod servers;
+mod channels;
 
 use axum::{
     routing::{
@@ -17,4 +18,5 @@ pub fn build_router() -> Router<AppState> {
         .route("/users/register", post(users::register))
         .route("/users/login", post(users::login))
         .route("/servers/create", post(servers::create))
+        .route("/channel/create", post(channels::create))
 }
