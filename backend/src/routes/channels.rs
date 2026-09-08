@@ -37,6 +37,7 @@ pub struct CreateRequest {
     name: String,
     server_id: Uuid
 }
+
 #[derive(Serialize)]
 pub struct CreateResponse {
     name: String,
