@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CALL - Login</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="./css/login.css">
+</head>
+
+<body>
+    <div class="background"></div>
+
+    <header class="brand">
+        <div class="logo-box">
+            <!-- Coloque sua logo em logo.png -->
+            <img src="logo.png" alt="Logo do CALL" onerror="this.style.display='none'">
+        </div>
+        <h1>CALL</h1>
+    </header>
+
+    <main>
+        <!-- LOGIN -->
+        <form id="login-form" class="screen active">
+            <div class="panel">
+                <h2>LOGIN</h2>
+
+                <div class="input-group">
+                    <label for="username">USUÁRIO</label>
+                    <input id="username" type="text" autocomplete="username"
+                           placeholder="Digite seu usuário">
+                </div>
+
+                <div class="input-group">
+                    <label for="password">SENHA</label>
+                    <input id="password" type="password" autocomplete="current-password"
+                           placeholder="Digite sua senha">
+                </div>
+
+                <p id="error-message" class="error-message"></p>
+
+                <button type="submit" class="stone-button" id="login-button">ENTRAR</button>
+                <button type="button" class="stone-button" id="go-register">CADASTRAR</button>
+            </div>
+        </form>
+    </main>
+
+    <script type="module" src="./js/login.js"></script>
+</body>
+</html>

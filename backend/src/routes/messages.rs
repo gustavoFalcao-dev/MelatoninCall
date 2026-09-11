@@ -7,7 +7,6 @@ use serde::{
     Deserialize,
     Serialize
 };
-
 use uuid::Uuid;
 use crate::state::AppState;
 
@@ -32,21 +31,29 @@ pub struct ValidatedSendRequest{
 const MAX_MESSAGE_CONTENT: usize = 2000;
 
 impl SendRequest {
-    fn send_validate(&self) -> Result<ValidatedSendRequest, (StatusCode, String)> {
+    fn validate_send(&self) -> Result<ValidatedSendRequest, (StatusCode, String)> {
 
         /* Validate content */
         let content = self.content.trim().to_string();
 
         if content.is_empty() {
-            return Err((StatusCode::BAD_REQUEST, "Content cannot be empty.".into()));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Content cannot be empty.".into()));
         }
         if content.len() > MAX_MESSAGE_CONTENT && content.chars().nth(MAX_MESSAGE_CONTENT).is_some() {
-            return Err((StatusCode::BAD_REQUEST, format!("Content cannot exceed {MAX_MESSAGE_CONTENT} characters.")));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                format!("Content cannot exceed {MAX_MESSAGE_CONTENT} characters.")
+            ));
         }
 
         /* Validate author_id */
         if self.author_id.trim().is_empty(){
-            return Err((StatusCode::BAD_REQUEST, "Author ID is required.".into()));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Author ID is required.".into()
+            ));
         }
 
         let author_id = Uuid::parse_str(&self.author_id)
@@ -55,7 +62,10 @@ impl SendRequest {
         
         /* Validate channel_id */
         if self.channel_id.trim().is_empty(){
-            return Err((StatusCode::BAD_REQUEST, "Channel ID is required.".into()));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Channel ID is required.".into()
+            ));
         }
 
         let channel_id = Uuid::parse_str(&self.channel_id)
@@ -75,7 +85,7 @@ pub async fn send(
     Json(payload): Json<SendRequest>
 ) -> Result<(StatusCode, Json<SendResponse>), (StatusCode, String)> {
 
-    let req = payload.send_validate()?;
+    let req = payload.validate_send()?;
     let message_id = Uuid::now_v7();
 
     let result = sqlx::query_scalar::<_, String>(
@@ -92,15 +102,24 @@ pub async fn send(
         Ok( content) => Ok((StatusCode::CREATED, Json(SendResponse { content }))),
         Err(sqlx::Error::Database(db_err)) =>{ 
         if db_err.is_foreign_key_violation() {
-            Err((StatusCode::NOT_FOUND, "The specified channel or author does not exist.".into()))
+            Err((
+                StatusCode::NOT_FOUND,
+                "The specified channel or author does not exist.".into()
+            ))
         } else {
             tracing::error!("Database error creating message: {:?}", db_err);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to send message.".into()))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to send message.".into()
+            ))
         }
         }
         Err(_e) => {
             tracing::error!("Unexpected error sending message: {:?}", _e);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to send message.".into()))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to send message.".into()
+            ))
         }
     }
     

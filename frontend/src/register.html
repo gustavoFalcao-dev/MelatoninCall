@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CALL - Cadastro</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="./css/register.css">
+</head>
+
+<body>
+    <div class="background"></div>
+
+    <header class="brand">
+        <div class="logo-box">
+            <!-- Coloque sua logo em logo.png -->
+            <img src="./assets/logo-placeholder.svg" alt="Logo do CALL" onerror="this.style.display='none'">
+        </div>
+        <h1>CALL</h1>
+    </header>
+
+    <main>
+        <!-- CADASTRO -->
+        <form id="register-form" class="screen active">
+            <div class="panel register-panel">
+                <h2>CADASTRO</h2>
+
+                <div class="input-group">
+                    <label for="username">USUÁRIO</label>
+                    <input id="username" type="text" autocomplete="username"
+                           placeholder="Escolha um usuário">
+                </div>
+
+                <div class="input-group">
+                    <label for="email">EMAIL</label>
+                    <input id="email" type="email" autocomplete="email"
+                           placeholder="Digite seu email">
+                </div>
+
+                <div class="input-group">
+                    <label for="password">SENHA</label>
+                    <input id="password" type="password" autocomplete="new-password"
+                           placeholder="Digite sua senha">
+                </div>
+
+                <div class="input-group">
+                    <label for="password-confirm">CONFIRMAR SENHA</label>
+                    <input id="password-confirm" type="password" autocomplete="new-password"
+                           placeholder="Confirme sua senha">
+                </div>
+
+                <p id="register-message" class="message"></p>
+
+                <button type="submit" class="stone-button" id="register-button">CADASTRAR</button>
+                <button type="button" class="stone-button secondary-button" id="back-login">VOLTAR</button>
+            </div>
+        </form>
+
+        <!-- SUCESSO -->
+        <section id="success-screen" class="screen">
+            <div class="panel success-panel">
+                <div class="success-icon">✓</div>
+                <h2>CADASTRO FEITO<br>COM SUCESSO!</h2>
+                <button class="stone-button" id="success-login">VOLTAR PARA LOGIN</button>
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="./js/register.js"></script>
+</body>
+</html>
