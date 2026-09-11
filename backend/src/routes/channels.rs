@@ -73,10 +73,10 @@ impl UpdateRequest {
                 return Err((StatusCode::BAD_REQUEST, "Channel name cannot be empty.".into()));
             }
             if clean_name.chars().count() < MIN_CHANNEL_NAME {
-                return Err((StatusCode::BAD_REQUEST, format!("Channel name must be at least {} characters long.", MIN_CHANNEL_NAME)));
+                return Err((StatusCode::BAD_REQUEST, format!("Channel name must be at least {MIN_CHANNEL_NAME} characters long.")));
             }
             if clean_name.len() > MAX_CHANNEL_NAME && clean_name.chars().nth(MAX_CHANNEL_NAME).is_some() {
-                return Err((StatusCode::BAD_REQUEST, format!("Channel name cannot exceed {} characters.", MAX_CHANNEL_NAME)));
+                return Err((StatusCode::BAD_REQUEST, format!("Channel name cannot exceed {MAX_CHANNEL_NAME} characters.")));
             }
 
             Ok(Some(clean_name))
