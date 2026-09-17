@@ -9,7 +9,6 @@ use serde::{
 };
 use bcrypt::{
     hash,
-    verify,
     DEFAULT_COST
 };
 use uuid::Uuid;
@@ -22,21 +21,12 @@ pub struct RegisterRequest {
     password: String,
     email: String
 }
-#[derive(Deserialize)]
-pub struct LoginRequest {
-    username: String,
-    password: String
-}
 #[derive(Serialize)]
 pub struct RegisterResponse {
     id: Uuid,
     username: String,
 }
-#[derive(Serialize)]
-pub struct LoginResponse {
-    id: Uuid,
-    username: String
-}
+
 
 const MIN_USERNAME_LEN: usize = 4;
 const MIN_PASSWORD_LEN: usize = 8;
@@ -248,37 +238,4 @@ pub async fn register(
             "Registration failed.".to_string()
         ))
     }
-}
-
-pub async fn login(
-    State(state): State<AppState>,
-    Json(payload): Json<LoginRequest>
-) -> Result<(StatusCode, Json<LoginResponse>), (StatusCode, String)>{
-    let user = sqlx::query_as::<_, (Uuid, String, String)>(
-        "SELECT id, username, password_hash FROM users WHERE username = $1"
-    )
-    .bind(&payload.username)
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Couldn't connect to the server.".to_string()))?;
-
-    let (id, username, password_hash) = match user {
-        Some(row) => row,
-        None => return Err((
-            StatusCode::UNAUTHORIZED,
-            "Invalid username or password.".to_string()
-        ))
-    };
-
-    let is_valid = verify(&payload.password, &password_hash)
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Login failed.".to_string()))?;
-
-    if !is_valid {
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            "Invalid username or password.".to_string()
-        ));
-    }
-
-    Ok((StatusCode::OK, Json(LoginResponse { id, username })))
 }
