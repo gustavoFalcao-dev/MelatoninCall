@@ -5,10 +5,9 @@ mod channels;
 mod messages;
 
 use axum::{
-    routing::{
-        get, post
-    },
-    Router
+    Router, routing::{
+        delete, get, patch, post
+    }
 };
 use tower_http::cors::{
     CorsLayer,
@@ -31,6 +30,8 @@ pub fn build_router() -> Router<AppState> {
         .route("/users/register", post(users::register))
         .route("/servers/create", post(servers::create))
         .route("/channel/create", post(channels::create))
+        .route("/channel/update/{id}", patch(channels::update))
+        .route("/channel/delete/{id}", delete(channels::delete))
         .route("/messages/send", post(messages::send))
         .route("/auth/login", post(auth::login::login))
         .route("/auth/me", get(auth::me::me))
