@@ -29,6 +29,8 @@ pub fn build_router() -> Router<AppState> {
         .route("/health", get(health::health_check))
         .route("/users/register", post(users::register))
         .route("/servers/create", post(servers::create))
+        .route("/servers/update/{id}", patch(servers::update))
+        .route("/servers/delete/{id}", delete(servers::delete))
         .route("/channel/create", post(channels::create))
         .route("/channel/update/{id}", patch(channels::update))
         .route("/channel/delete/{id}", delete(channels::delete))
