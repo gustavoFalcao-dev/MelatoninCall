@@ -1,5 +1,8 @@
 use axum::{
-    extract::{Path, State, Query},
+    extract::{
+        Path, 
+        State,
+    },
     http::StatusCode,
     Json
 };
@@ -8,12 +11,14 @@ use serde::{
     Serialize
 };
 use uuid::Uuid;
-use crate::state::AppState;
+use crate::{
+    state::AppState,
+    auth::user::AuthUser,
+};
 
 #[derive(Deserialize)]
 pub struct CreateRequest {
     name: String,
-    owner_id: Uuid
 }
 
 #[derive(Serialize)]
@@ -47,9 +52,9 @@ impl CreateRequest {
             ));
         }
         
-        if name.len() > MAX_SERVERS_NAME && name.chars().nth(MAX_SERVERS_NAME).is_some() {
+        if name.chars().count() > MAX_SERVERS_NAME {
             return Err((
-                StatusCode::BAD_REQUEST, 
+                StatusCode::BAD_REQUEST,
                 format!("Server name should be at most {MAX_SERVERS_NAME} characters long.")
             ));
         }
@@ -82,6 +87,7 @@ impl UpdateRequest {
     
 
 pub async fn create(
+    AuthUser(user_id): AuthUser,
     State(state): State<AppState>,
     Json(payload): Json<CreateRequest>
 ) -> Result<(StatusCode, Json<CreateResponse>), (StatusCode, String)> {
@@ -90,32 +96,41 @@ pub async fn create(
 
     let server_id = Uuid::now_v7();
 
-    let result = sqlx::query_scalar::<_, String>(
-        "INSERT INTO servers (id, name, owner_id) VALUES ($1, $2, $3) RETURNING name"
+    let mut tx = state.db
+    .begin()
+    .await
+    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to start database transaction.".to_string()))?;
+
+    sqlx::query(
+        "INSERT INTO servers (id, name, owner_id) VALUES ($1, $2, $3)"
     )
     .bind(server_id)
-    .bind(name)
-    .bind(&payload.owner_id)
-    .fetch_one(&state.db)
-    .await;
+    .bind(&name)
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create server.".to_string()))?;
 
-    match result {
-        Ok( name) => Ok((StatusCode::CREATED, Json(CreateResponse { name }))),
-        Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
-            let constraint = db_err.constraint().unwrap_or("");
-            Err((
-                StatusCode::CONFLICT,
-                constraint.to_string()
-            ))
-        }
-        Err(_) => {
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to create server.".to_string()
-            ))
-        }
-    }
+    sqlx::query(
+        "INSERT INTO server_members (server_id, user_id) VALUES ($1, $2)"
+    )
+    .bind(server_id)
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to add owner to server.".to_string()))?;
+
+    tx.commit()
+    .await
+    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to commit server creation.".to_string()))?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(CreateResponse { name }),
+    ))
 }
+
+
 
 pub async fn update(
     State(state): State<AppState>,

@@ -19,7 +19,8 @@ pub struct LoginRequest {
 }
 #[derive(Serialize)]
 pub struct LoginResponse {
-    token: String,
+    access_token: String,
+    refresh_token: String,
 }
 
 
@@ -57,14 +58,47 @@ pub async fn login(
         ));
     }
 
-    let token = state.jwt
+    let access_token = state.jwt
     .create_token(id)
-    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create authentication token.".to_string()))?;
+    .map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Failed to create authentication token.".to_string()
+    ))?;
+
+    let refresh_token = crate::auth::refresh::generate_refresh_token();
+
+    let token_hash = crate::auth::refresh::hash_refresh_token(&refresh_token);
+
+    let refresh_token_id = Uuid::now_v7();
+
+    let refresh_ttl = i64::try_from(state.jwt.refresh_ttl)
+    .map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "JWT_REFRESH_TTL is too large.".to_string()
+    ))?;
+    
+    let expires_at = chrono::Utc::now()
+    + chrono::Duration::seconds(refresh_ttl);
+
+    sqlx::query(
+        "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)"
+    )
+    .bind(refresh_token_id)
+    .bind(id)
+    .bind(token_hash)
+    .bind(expires_at)
+    .execute(&state.db)
+    .await
+    .map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Failed to create refresh token.".to_string()
+    ))?;
 
     Ok((
         StatusCode::OK,
         Json(LoginResponse { 
-            token,
+            access_token,
+            refresh_token,
         })
     ))
 }

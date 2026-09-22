@@ -37,5 +37,6 @@ pub fn build_router() -> Router<AppState> {
         .route("/messages/send", post(messages::send))
         .route("/auth/login", post(auth::login::login))
         .route("/auth/me", get(auth::me::me))
+        .route("/auth/refresh", post(auth::refresh::refresh))
         .layer(cors)
     }

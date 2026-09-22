@@ -17,6 +17,7 @@ pub struct JwtService {
     pub encoding_key: EncodingKey,
     pub decoding_key: DecodingKey,
     pub access_ttl: u64,
+    pub refresh_ttl: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -70,10 +71,20 @@ impl JwtService {
                     "JWT_ACCESS_TTL must be a valid number.".to_string()
             ))?;
 
+        let jwt_refresh_ttl = std::env::var("JWT_ACCESS_TTL")
+            .map_err(|_| JwtError::MissingEnvVar(
+                "JWT_REFRESH_TTL".to_string()
+            ))?
+                .parse::<u64>()
+                .map_err(|_| JwtError::InvalidExpirationTime(
+                    "JWT_REFRESH_TTL must be a valid number.".to_string()
+            ))?;
+
         Ok(Self{
             encoding_key,
             decoding_key,
             access_ttl: jwt_access_ttl,
+            refresh_ttl: jwt_refresh_ttl,
         })
     }
 
