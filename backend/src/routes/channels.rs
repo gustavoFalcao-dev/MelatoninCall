@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, State, Query},
     http::StatusCode,
     Json
 };
@@ -8,8 +8,30 @@ use serde::{
     Serialize
 };
 
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
 use crate::state::AppState;
+
+#[derive(Deserialize)]
+pub struct PaginationParams{
+    page: Option<u32>,
+    per_page: Option<u8>
+}
+
+#[derive(Serialize)]
+pub struct ChannelPaginatedResponse<T> {
+    data: Vec<T>,
+    page: u32,
+    per_page: u8,
+    total_items: i64,
+    total_pages: i64,
+}
+
+#[derive(Serialize, FromRow)]
+pub struct ChannelResponse {
+    id: Uuid,
+    name: String,
+}
 
 #[derive(Deserialize)]
 pub struct CreateRequest {
@@ -84,6 +106,73 @@ impl UpdateRequest {
             Ok(None)
         }
     }
+}
+
+pub async fn list(
+    State(state): State<AppState>,
+    Path(server_id_str): Path<String>,
+    Query(pagination): Query<PaginationParams>,
+) -> Result<Json<ChannelPaginatedResponse<ChannelResponse>>, (StatusCode, String)> {
+
+    let server_id = Uuid::parse_str(&server_id_str)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid Server ID format. Must be a valid UUID.".into()))?;
+
+    let server_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM servers WHERE id = $1)"
+    )
+    .bind(server_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error checking server existence: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR,
+         "Failed to verify server existence.".into())
+    })?;
+
+    if !server_exists {
+        return Err((StatusCode::NOT_FOUND,
+             "Server not found.".into()));
+    }
+
+    let page = pagination.page.unwrap_or(1).max(1);
+    let per_page = pagination.per_page.unwrap_or(10).clamp(1, 50);
+    let offset = ((page - 1) as i64) * (per_page as i64);
+
+    let total_items: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM channels WHERE server_id = $1"
+    )
+    .bind(server_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error counting channels: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, 
+        "Failed to fetch channels count.".into())
+    })?;
+
+    let result = sqlx::query_as::<_, ChannelResponse>(
+        "SELECT id, name, server_id FROM channels WHERE server_id = $1 ORDER BY id DESC LIMIT $2 OFFSET $3"
+    )
+    .bind(server_id)
+    .bind(per_page as i64)
+    .bind(offset)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error listing channels: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, 
+        "Failed to fetch channels.".into())
+    })?;
+
+    let total_pages = (total_items as f64 / per_page as f64).ceil() as i64;
+
+    Ok(Json(ChannelPaginatedResponse {
+            data: result,
+            page,
+            per_page,
+            total_items,
+            total_pages,
+        }))
 }
 
 pub async fn create(

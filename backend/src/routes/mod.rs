@@ -31,6 +31,7 @@ pub fn build_router() -> Router<AppState> {
         .route("/servers/create", post(servers::create))
         .route("/servers/update/{id}", patch(servers::update))
         .route("/servers/delete/{id}", delete(servers::delete))
+        .route("/channel/list/{id}", get(channels::list))
         .route("/channel/create", post(channels::create))
         .route("/channel/update/{id}", patch(channels::update))
         .route("/channel/delete/{id}", delete(channels::delete))
