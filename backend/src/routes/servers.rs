@@ -10,11 +10,12 @@ use serde::{
     Deserialize,
     Serialize
 };
-use uuid::Uuid;
 use crate::{
-    state::AppState,
-    auth::user::AuthUser,
+    auth::user::AuthUser, state::AppState,
 };
+use uuid::Uuid;
+use sqlx::FromRow;
+
 
 #[derive(Deserialize)]
 pub struct CreateRequest {
@@ -31,8 +32,16 @@ pub struct UpdateRequest{
     name: Option<String>,
 }
 
-const MIN_SERVERS_NAME: usize = 4;
-const MAX_SERVERS_NAME: usize = 30;
+#[derive(Serialize, FromRow)]
+pub struct ServerResponse {
+    pub id: Uuid,
+    pub name: String,
+    pub owner_id: Uuid,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+const MIN_SERVER_NAME: usize = 4;
+const MAX_SERVER_NAME: usize = 30;
 
 impl CreateRequest {
     fn validate_name(&self) -> Result<String, (StatusCode, String)> {
@@ -45,17 +54,17 @@ impl CreateRequest {
             ));
         }
 
-        if name.chars().count() < MIN_SERVERS_NAME {
+        if name.chars().count() < MIN_SERVER_NAME {
             return Err((
                 StatusCode::BAD_REQUEST, 
-                format!("Server name should be at least {MIN_SERVERS_NAME} characters long.")
+                format!("Server name should be at least {MIN_SERVER_NAME} characters long.")
             ));
         }
         
-        if name.chars().count() > MAX_SERVERS_NAME {
+        if name.chars().count() > MAX_SERVER_NAME {
             return Err((
                 StatusCode::BAD_REQUEST,
-                format!("Server name should be at most {MAX_SERVERS_NAME} characters long.")
+                format!("Server name should be at most {MAX_SERVER_NAME} characters long.")
             ));
         }
 
@@ -69,13 +78,19 @@ impl UpdateRequest {
             let clean_name = name.trim().to_string();
 
             if clean_name.is_empty() {
-                return Err((StatusCode::BAD_REQUEST, "Server name cannot be empty.".into()));
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    "Server name cannot be empty.".into()));
             }
-            if clean_name.chars().count() < MIN_SERVERS_NAME {
-                return Err((StatusCode::BAD_REQUEST, format!("Server name must be at least {MIN_SERVERS_NAME} characters long.")));
+            if clean_name.chars().count() < MIN_SERVER_NAME {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    format!("Server name must be at least {MIN_SERVER_NAME} characters long.")));
             }
-            if clean_name.len() > MAX_SERVERS_NAME && clean_name.chars().nth(MAX_SERVERS_NAME).is_some() {
-                return Err((StatusCode::BAD_REQUEST, format!("Server name cannot exceed {MAX_SERVERS_NAME} characters.")));
+            if clean_name.chars().count() > MAX_SERVER_NAME {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    format!("Server name cannot exceed {MAX_SERVER_NAME} characters.")));
             }
 
             Ok(Some(clean_name))
@@ -133,13 +148,17 @@ pub async fn create(
 
 
 pub async fn update(
+    AuthUser(user_id): AuthUser,
     State(state): State<AppState>,
     Path(server_id_str): Path<String>,
     Json(payload): Json<UpdateRequest>
 ) -> Result<StatusCode, (StatusCode, String)> {
 
     let server_id = Uuid::parse_str(&server_id_str)
-    .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid Server ID format. Must be a valid UUID.".into()))?;
+    .map_err(|_| (
+        StatusCode::BAD_REQUEST,
+        "Invalid Server ID format. Must be a valid UUID.".into()
+    ))?;
 
     let validated_name = payload.validate()?;
 
@@ -148,10 +167,11 @@ pub async fn update(
     }
 
     let result = sqlx::query(
-        "UPDATE servers SET name = COALESCE($1, name) WHERE id = $2"
+        "UPDATE servers SET name = $1 WHERE id = $2 AND owner_id = $3"
     )
     .bind(validated_name) 
     .bind(server_id)
+    .bind(user_id)
     .execute(&state.db)
     .await;
 
@@ -163,22 +183,26 @@ pub async fn update(
                 Ok(StatusCode::OK)
             }
         }
-        Err(sqlx::Error::Database(db_err)) => {
-            if db_err.is_unique_violation() {
-                Err((StatusCode::CONFLICT, "A Server with this name already exists in this server.".into()))
-            } else {
+        Err(sqlx::Error::Database(db_err)) => {            
                 tracing::error!("Database error updating server: {:?}", db_err);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to update server.".into()))
-            }
+                Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Failed to update server.".into()
+                ))
+            // }
         }
         Err(e) => {
             tracing::error!("Unexpected error updating server: {:?}", e);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to update server.".into()))
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to update server.".into()
+            ))
         }
     }
 }
 
 pub async fn delete(
+    AuthUser(user_id): AuthUser,
     State(state): State<AppState>,
     Path(server_id_str): Path<String>
 ) -> Result<StatusCode, (StatusCode, String)> {
@@ -186,8 +210,9 @@ pub async fn delete(
     let server_id = Uuid::parse_str(&server_id_str)
     .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid Server ID format. Must be a valid UUID.".into()))?;
     
-    let result = sqlx::query("DELETE from servers WHERE id = $1")
+    let result = sqlx::query("DELETE FROM servers WHERE id = $1 AND owner_id = $2")
     .bind(server_id)
+    .bind(user_id)
     .execute(&state.db)
     .await;
 
@@ -203,6 +228,60 @@ pub async fn delete(
             tracing::error!("Unexpected error deleting Server: {:?}", _e);
             Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete server.".into()))
         }
+    }
+
+}
+
+pub async fn list(
+    AuthUser(user_id): AuthUser,
+    State(state): State<AppState>,
+) -> Result<Json<Vec<ServerResponse>>, (StatusCode, String)> {
+    
+    let servers = sqlx::query_as::<_, ServerResponse>(
+        "SELECT s.id, s.name, s.owner_id, s.created_at FROM servers s JOIN server_members sm ON sm.server_id = s.id WHERE sm.user_id = $1 ORDER BY s.created_at"
+    )
+    .bind(user_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Failed to fetch servers.".to_string()
+    ))?;
+
+    Ok(Json(servers))
+
+}
+
+pub async fn get(
+    AuthUser(user_id): AuthUser,
+    State(state): State<AppState>,
+    Path(server_id_str): Path<String>,
+) -> Result<Json<ServerResponse>, (StatusCode, String)> {
+
+    let server_id = Uuid::parse_str(&server_id_str)
+    .map_err(|_| (
+        StatusCode::BAD_REQUEST,
+        "Invalid Server ID format. Must be a valid UUID.".into()
+    ))?;
+
+    let server = sqlx::query_as::<_, ServerResponse>(
+        "SELECT s.id, s.name, s.owner_id, s.created_at FROM servers s JOIN server_members sm ON sm.server_id = s.id WHERE s.id = $1 AND sm.user_id = $2"
+    )
+    .bind(server_id)
+    .bind(user_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Failed to fetch server".into()
+    ))?;
+
+    match server {
+        Some(server) => Ok(Json(server)),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            "Server not found.".into(),
+        ))
     }
 
 }

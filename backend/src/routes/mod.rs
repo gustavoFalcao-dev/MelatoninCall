@@ -28,6 +28,8 @@ pub fn build_router() -> Router<AppState> {
         .route("/", get(|| async{"Hello, World"}))
         .route("/health", get(health::health_check))
         .route("/users/register", post(users::register))
+        .route("/servers", get(servers::list))
+        .route("/servers/{id}", get(servers::get))
         .route("/servers/create", post(servers::create))
         .route("/servers/update/{id}", patch(servers::update))
         .route("/servers/delete/{id}", delete(servers::delete))
