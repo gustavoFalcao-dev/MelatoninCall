@@ -3,6 +3,7 @@ mod users;
 mod servers;
 mod channels;
 mod messages;
+mod private_messages;
 
 use axum::{
     Router, routing::{
@@ -38,6 +39,10 @@ pub fn build_router() -> Router<AppState> {
         .route("/channel/update/{id}", patch(channels::update))
         .route("/channel/delete/{id}", delete(channels::delete))
         .route("/messages/send", post(messages::send))
+        .route("/messages/private/list/{id}", get(private_messages::list))
+        .route("/messages/private/send/{id}", post(private_messages::send))
+        .route("/messages/private/delete/{id}", delete(private_messages::delete))
+        .route("/messages/private/update/{id}", patch(private_messages::update))
         .route("/auth/login", post(auth::login::login))
         .route("/auth/me", get(auth::me::me))
         .route("/auth/refresh", post(auth::refresh::refresh))
