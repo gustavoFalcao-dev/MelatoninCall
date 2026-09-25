@@ -247,16 +247,16 @@ pub async fn update(
         format!("Invalid Channel ID format. Must be a valid UUID.")
     ))?;
 
-    let validated_name = payload.validate()?;
+    let req = payload.validate()?;
 
-    if validated_name.is_none() {
+    if req.is_none() {
         return Ok(StatusCode::NO_CONTENT);
     }
 
     let result = sqlx::query(
-        "UPDATE private_messages SET content = $1 WHERE id = $2 AND author_id = $3"
+        "UPDATE private_messages SET content = $1, updated_at = NOW() WHERE id = $2 AND author_id = $3"
     )
-    .bind(validated_name) 
+    .bind(req) 
     .bind(private_message_id)
     .bind(author_id)
     .execute(&state.db)
